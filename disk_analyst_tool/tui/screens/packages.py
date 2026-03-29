@@ -131,6 +131,10 @@ class PackageManager(Widget):
             event.button.add_class("-active")
             # Re-apply search filter when switching tabs
             self._apply_filter()
+            # Focus the table in the new view
+            table_map = {"brew-view": "brew-table", "npm-view": "npm-table", "pip-view": "pip-table"}
+            table_id = table_map[nav_map[event.button.id]]
+            self.set_timer(0.1, lambda tid=table_id: self.query_one(f"#{tid}", DataTable).focus())
         elif event.button.id == "btn-pkg-refresh":
             self._load_all()
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Footer, Header, TabbedContent, TabPane
+from textual.widgets import Footer, Header, TabbedContent, TabPane, DataTable
 
 from disk_analyst_tool.tui.screens.dashboard import Dashboard
 from disk_analyst_tool.tui.screens.disk import DiskExplorer
@@ -39,6 +39,30 @@ class DiskAnalystApp(App):
             with TabPane("Docker", id="tab-docker"):
                 yield DockerManager()
         yield Footer()
+
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        """Focus the first focusable widget in the active tab."""
+        self.set_timer(0.1, lambda: self._focus_active_tab())
+
+    def _focus_active_tab(self) -> None:
+        """Find and focus the first DataTable or focusable widget in the active pane."""
+        tc = self.query_one(TabbedContent)
+        active_pane = tc.active_pane
+        if active_pane is None:
+            return
+
+        # Try to focus the first DataTable in the active pane
+        tables = active_pane.query(DataTable)
+        for table in tables:
+            if table.display:
+                table.focus()
+                return
+
+        # Fallback: focus the pane's first focusable child
+        for child in active_pane.query("*"):
+            if child.can_focus:
+                child.focus()
+                return
 
     def action_refresh(self) -> None:
         dashboard = self.query_one(Dashboard)

@@ -184,6 +184,10 @@ class DockerManager(Widget):
             for btn in self.query(".nav-btn"):
                 btn.remove_class("-active")
             event.button.add_class("-active")
+            # Focus the table in the new view
+            table_map = {"images-view": "docker-images-table", "containers-view": "docker-containers-table"}
+            table_id = table_map[nav_map[event.button.id]]
+            self.set_timer(0.1, lambda tid=table_id: self.query_one(f"#{tid}", DataTable).focus())
         elif event.button.id == "btn-docker-refresh":
             self._check_and_load()
         elif event.button.id == "btn-docker-prune":
