@@ -1,0 +1,235 @@
+/* Disk Analyst — inspired by btop/lazydocker */
+
+Screen {
+    background: $surface;
+}
+
+/* ===== Main layout ===== */
+Dashboard, DiskExplorer, PackageManager {
+    height: 1fr;
+    width: 1fr;
+}
+
+/* ===== Bordered panels ===== */
+.panel {
+    border: round $primary-muted;
+    padding: 0 1;
+    margin: 0 0 1 0;
+    background: $boost;
+}
+
+.panel:focus-within {
+    border: round $primary;
+}
+
+.panel-title {
+    height: 1;
+    color: $accent;
+    text-style: bold;
+    padding: 0 1;
+    margin: 0 0 0 0;
+}
+
+/* ===== Dashboard ===== */
+#dash-disk-panel {
+    height: auto;
+    max-height: 8;
+}
+
+#disk-bar {
+    height: 1;
+    margin: 0 1;
+}
+
+#disk-bar > .bar--bar {
+    color: $success;
+    background: $surface;
+}
+
+#disk-label {
+    height: 1;
+    padding: 0 1;
+    color: $text;
+}
+
+#disk-detail {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+}
+
+#disk-alert {
+    height: auto;
+    max-height: 1;
+    padding: 0 1;
+    color: $error;
+    text-style: bold;
+}
+
+#dash-pkg-panel {
+    height: auto;
+    max-height: 10;
+}
+
+#pkg-table {
+    height: auto;
+    max-height: 6;
+    margin: 0;
+}
+
+/* ===== Disk Explorer ===== */
+#disk-toolbar {
+    height: auto;
+    layout: horizontal;
+    padding: 0;
+    margin: 0 0 1 0;
+}
+
+#scan-path {
+    width: 1fr;
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: $surface;
+}
+
+#scan-path:focus {
+    border: none;
+    background-tint: $foreground 5%;
+}
+
+.toolbar-btn {
+    min-width: 8;
+    height: 1;
+    border: none;
+    padding: 0 1;
+    margin: 0 0 0 1;
+    text-style: bold;
+}
+
+#disk-tree-panel {
+    height: 1fr;
+    min-height: 8;
+}
+
+#dir-tree {
+    height: 1fr;
+    margin: 0;
+    padding: 0;
+}
+
+#disk-files-panel {
+    height: auto;
+    max-height: 12;
+}
+
+#large-files-table {
+    height: auto;
+    max-height: 10;
+    margin: 0;
+}
+
+/* ===== Package Manager ===== */
+#pkg-nav {
+    height: auto;
+    layout: horizontal;
+    padding: 0;
+    margin: 0 0 1 0;
+    background: $surface;
+}
+
+.nav-btn {
+    min-width: 12;
+    height: 1;
+    border: none;
+    padding: 0 2;
+    margin: 0;
+    background: $surface;
+    color: $text-muted;
+}
+
+.nav-btn:hover {
+    background: $primary-muted;
+    color: $text;
+}
+
+.nav-btn.-active {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+.nav-btn-refresh {
+    min-width: 10;
+    height: 1;
+    border: none;
+    padding: 0 2;
+    margin: 0 0 0 1;
+    background: $warning-muted;
+    color: $text;
+}
+
+.nav-btn-refresh:hover {
+    background: $warning;
+}
+
+#pkg-content-panel {
+    height: 1fr;
+    min-height: 10;
+}
+
+#brew-table, #npm-table, #pip-table {
+    height: 1fr;
+    margin: 0;
+}
+
+#pkg-status-bar {
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    background: $surface;
+    color: $text-muted;
+}
+
+#pkg-total-size {
+    height: 1;
+    padding: 0 1;
+    color: $warning;
+    text-style: bold;
+}
+
+/* ===== DataTable global ===== */
+DataTable {
+    background: $boost;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    color: $accent;
+    background: $surface;
+}
+
+DataTable > .datatable--cursor {
+    background: $primary;
+    color: $text;
+}
+
+/* ===== Footer ===== */
+Footer {
+    background: $surface;
+}
+
+/* ===== Tabs ===== */
+TabbedContent {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 1;
+}
+
+/* ===== Compact buttons globally ===== */
+Button {
+    height: auto;
+    min-height: 1;
+}
