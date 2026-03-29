@@ -173,6 +173,19 @@ Dashboard, DiskExplorer, PackageManager {
     background: $warning;
 }
 
+#pkg-search {
+    height: 1;
+    border: none;
+    padding: 0 1;
+    margin: 0 0 1 0;
+    background: $surface;
+}
+
+#pkg-search:focus {
+    border: none;
+    background-tint: $foreground 5%;
+}
+
 #pkg-content-panel {
     height: 1fr;
     min-height: 10;
@@ -196,6 +209,45 @@ Dashboard, DiskExplorer, PackageManager {
     padding: 0 1;
     color: $warning;
     text-style: bold;
+}
+
+/* ===== Docker Manager ===== */
+DockerManager {
+    height: 1fr;
+    width: 1fr;
+}
+
+#docker-nav {
+    height: auto;
+    layout: horizontal;
+    padding: 0;
+    margin: 0 0 1 0;
+    background: $surface;
+}
+
+#docker-summary {
+    height: 1;
+    padding: 0 1;
+    color: $warning;
+    text-style: bold;
+}
+
+#docker-content-panel {
+    height: 1fr;
+    min-height: 10;
+}
+
+#docker-images-table, #docker-containers-table {
+    height: 1fr;
+    margin: 0;
+}
+
+#docker-status-bar {
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    background: $surface;
+    color: $text-muted;
 }
 
 /* ===== DataTable global ===== */

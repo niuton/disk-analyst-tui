@@ -18,7 +18,9 @@ jq\t1.7.1
 @patch("disk_analyst_tool.core.packages._run_cmd")
 def test_list_homebrew(mock_run):
     mock_run.side_effect = [
-        BREW_LIST_OUTPUT.strip(),
+        BREW_LIST_OUTPUT.strip(),  # brew list --versions
+        "/opt/homebrew/Cellar",    # brew --cellar
+        "/opt/homebrew",           # brew --prefix
     ]
     packages = list_homebrew()
     assert len(packages) >= 3
