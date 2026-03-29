@@ -4,7 +4,7 @@ import humanize
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.widget import Widget
-from textual.widgets import ProgressBar, DataTable, Label
+from textual.widgets import ProgressBar, DataTable, Label, LoadingIndicator
 from textual import work
 
 from disk_analyst_tool.core import get_disk_usage, list_homebrew, list_npm_global, list_pip
@@ -26,9 +26,11 @@ class Dashboard(Widget):
             # Package stats panel
             with Vertical(id="dash-pkg-panel", classes="panel"):
                 yield Label(" Package Overview", classes="panel-title")
+                yield LoadingIndicator(id="dash-loading")
                 yield DataTable(id="pkg-table")
 
     def on_mount(self) -> None:
+        self.query_one("#pkg-table").display = False
         self._refresh_data()
 
     def _refresh_data(self) -> None:
@@ -55,6 +57,9 @@ class Dashboard(Widget):
         else:
             alert.update("")
 
+        # Show loading, load packages
+        self.query_one("#dash-loading").display = True
+        self.query_one("#pkg-table").display = False
         self._load_pkg_counts()
 
     @work(thread=True)
@@ -80,6 +85,10 @@ class Dashboard(Widget):
         npm_n: int, npm_s: int,
         pip_n: int, pip_s: int,
     ) -> None:
+        # Hide loading, show table
+        self.query_one("#dash-loading").display = False
+        self.query_one("#pkg-table").display = True
+
         pkg_table = self.query_one("#pkg-table", DataTable)
         pkg_table.clear(columns=True)
         pkg_table.add_columns("Manager", "Packages", "Total Size")

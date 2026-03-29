@@ -4,7 +4,7 @@ import humanize
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.widget import Widget
-from textual.widgets import DataTable, Button, Label, ContentSwitcher
+from textual.widgets import DataTable, Button, Label, ContentSwitcher, LoadingIndicator
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual import work
@@ -71,7 +71,13 @@ class DockerManager(Widget):
     BINDINGS = [
         Binding("d", "remove_selected", "Remove", show=True),
         Binding("p", "prune_all", "Prune All", show=True),
+        Binding("left", "prev_view", "Prev", show=False),
+        Binding("right", "next_view", "Next", show=False),
     ]
+
+    _VIEWS = ["images-view", "containers-view"]
+    _BUTTONS = ["btn-docker-images", "btn-docker-containers"]
+    _TABLES = ["docker-images-table", "docker-containers-table"]
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -84,6 +90,9 @@ class DockerManager(Widget):
 
             # Summary
             yield Label("  Loading...", id="docker-summary")
+
+            # Loading
+            yield LoadingIndicator(id="docker-loading")
 
             # Content
             with Vertical(id="docker-content-panel", classes="panel"):
@@ -108,6 +117,8 @@ class DockerManager(Widget):
         self._check_and_load()
 
     def _check_and_load(self) -> None:
+        self.query_one("#docker-loading").display = True
+        self.query_one("#docker-content-panel").display = False
         self._load_data()
 
     @work(thread=True)
@@ -149,6 +160,8 @@ class DockerManager(Widget):
         )
 
     def _show_unavailable(self) -> None:
+        self.query_one("#docker-loading").display = False
+        self.query_one("#docker-content-panel").display = True
         self.query_one("#docker-summary", Label).update(
             "  Docker is not running or not installed"
         )
@@ -157,6 +170,9 @@ class DockerManager(Widget):
         self, img_rows: list, ctr_rows: list,
         img_count: int, ctr_count: int, total_size: int,
     ) -> None:
+        self.query_one("#docker-loading").display = False
+        self.query_one("#docker-content-panel").display = True
+
         img_table = self.query_one("#docker-images-table", DataTable)
         img_table.clear()
         for row in img_rows:
@@ -192,6 +208,27 @@ class DockerManager(Widget):
             self._check_and_load()
         elif event.button.id == "btn-docker-prune":
             self.action_prune_all()
+
+    def _switch_to_view(self, index: int) -> None:
+        switcher = self.query_one(ContentSwitcher)
+        switcher.current = self._VIEWS[index]
+        for btn in self.query(".nav-btn"):
+            btn.remove_class("-active")
+        self.query_one(f"#{self._BUTTONS[index]}", Button).add_class("-active")
+        table_id = self._TABLES[index]
+        self.set_timer(0.1, lambda tid=table_id: self.query_one(f"#{tid}", DataTable).focus())
+
+    def _current_view_index(self) -> int:
+        current = self.query_one(ContentSwitcher).current
+        return self._VIEWS.index(current) if current in self._VIEWS else 0
+
+    def action_prev_view(self) -> None:
+        idx = (self._current_view_index() - 1) % len(self._VIEWS)
+        self._switch_to_view(idx)
+
+    def action_next_view(self) -> None:
+        idx = (self._current_view_index() + 1) % len(self._VIEWS)
+        self._switch_to_view(idx)
 
     def action_remove_selected(self) -> None:
         switcher = self.query_one(ContentSwitcher)

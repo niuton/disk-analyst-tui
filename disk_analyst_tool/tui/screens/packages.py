@@ -4,7 +4,7 @@ import humanize
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.widget import Widget
-from textual.widgets import DataTable, Button, Label, ContentSwitcher, Input
+from textual.widgets import DataTable, Button, Label, ContentSwitcher, Input, LoadingIndicator
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual import work, on
@@ -68,12 +68,19 @@ class PackageManager(Widget):
         Binding("d", "uninstall_selected", "Uninstall", show=True),
         Binding("/", "focus_search", "Search", show=True),
         Binding("escape", "clear_search", "Clear search"),
+        Binding("left", "prev_manager", "Prev", show=False),
+        Binding("right", "next_manager", "Next", show=False),
     ]
+
+    _VIEWS = ["brew-view", "npm-view", "pip-view"]
+    _BUTTONS = ["btn-brew", "btn-npm", "btn-pip"]
+    _TABLES = ["brew-table", "npm-table", "pip-table"]
 
     # Store full data for filtering
     _all_rows: dict[str, list[tuple]] = {}
     _all_packages: dict[str, list[Package]] = {}
     _totals: dict[str, int] = {}
+    _pending_loads: int = 0
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -89,6 +96,9 @@ class PackageManager(Widget):
 
             # Total size indicator
             yield Label("  Loading...", id="pkg-total-size")
+
+            # Loading indicator
+            yield LoadingIndicator(id="pkg-loading")
 
             # Content area
             with Vertical(id="pkg-content-panel", classes="panel"):
@@ -137,6 +147,29 @@ class PackageManager(Widget):
             self.set_timer(0.1, lambda tid=table_id: self.query_one(f"#{tid}", DataTable).focus())
         elif event.button.id == "btn-pkg-refresh":
             self._load_all()
+
+    def _switch_to_view(self, index: int) -> None:
+        """Switch to a manager view by index and update UI."""
+        switcher = self.query_one(ContentSwitcher)
+        switcher.current = self._VIEWS[index]
+        for btn in self.query(".nav-btn"):
+            btn.remove_class("-active")
+        self.query_one(f"#{self._BUTTONS[index]}", Button).add_class("-active")
+        self._apply_filter()
+        table_id = self._TABLES[index]
+        self.set_timer(0.1, lambda tid=table_id: self.query_one(f"#{tid}", DataTable).focus())
+
+    def _current_view_index(self) -> int:
+        current = self.query_one(ContentSwitcher).current
+        return self._VIEWS.index(current) if current in self._VIEWS else 0
+
+    def action_prev_manager(self) -> None:
+        idx = (self._current_view_index() - 1) % len(self._VIEWS)
+        self._switch_to_view(idx)
+
+    def action_next_manager(self) -> None:
+        idx = (self._current_view_index() + 1) % len(self._VIEWS)
+        self._switch_to_view(idx)
 
     @on(Input.Changed, "#pkg-search")
     def _on_search_changed(self, event: Input.Changed) -> None:
@@ -218,6 +251,9 @@ class PackageManager(Widget):
             )
 
     def _load_all(self) -> None:
+        self._pending_loads = 3
+        self.query_one("#pkg-loading").display = True
+        self.query_one("#pkg-content-panel").display = False
         self.query_one("#pkg-total-size", Label).update("  Loading packages...")
         self._load_brew()
         self._load_npm()
@@ -301,3 +337,9 @@ class PackageManager(Widget):
             f"  Total installed: {humanize.naturalsize(grand_total)}"
         )
         self.query_one("#pkg-status-bar", Label).update(f"  {status}  |  [d] Uninstall  [/] Search")
+
+        # Hide loading when all loads complete
+        self._pending_loads -= 1
+        if self._pending_loads <= 0:
+            self.query_one("#pkg-loading").display = False
+            self.query_one("#pkg-content-panel").display = True

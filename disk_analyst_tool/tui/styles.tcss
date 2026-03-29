@@ -250,6 +250,16 @@ DockerManager {
     color: $text-muted;
 }
 
+/* ===== Loading indicators ===== */
+LoadingIndicator {
+    height: 3;
+    color: $accent;
+}
+
+#dash-loading {
+    height: 3;
+}
+
 /* ===== DataTable global ===== */
 DataTable {
     background: $boost;
