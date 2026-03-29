@@ -13,6 +13,9 @@ from disk_analyst_tool.core import get_disk_usage, list_homebrew, list_npm_globa
 class Dashboard(Widget):
     """Home dashboard with disk usage and package overview."""
 
+    _loaded: bool = False
+    _loading: bool = False
+
     def compose(self) -> ComposeResult:
         with Vertical():
             # Disk usage panel
@@ -33,7 +36,8 @@ class Dashboard(Widget):
         self.query_one("#pkg-table").display = False
         self._refresh_data()
 
-    def _refresh_data(self) -> None:
+    def _refresh_data(self, force: bool = False) -> None:
+        # Update disk usage (fast, always refresh)
         usage = get_disk_usage()
 
         bar = self.query_one("#disk-bar", ProgressBar)
@@ -57,12 +61,14 @@ class Dashboard(Widget):
         else:
             alert.update("")
 
-        # Show loading, load packages
-        self.query_one("#dash-loading").display = True
-        self.query_one("#pkg-table").display = False
-        self._load_pkg_counts()
+        # Only load packages if not already loaded (or forced)
+        if not self._loaded and not self._loading or force:
+            self._loading = True
+            self.query_one("#dash-loading").display = True
+            self.query_one("#pkg-table").display = False
+            self._load_pkg_counts()
 
-    @work(thread=True)
+    @work(thread=True, exclusive=True)
     def _load_pkg_counts(self) -> None:
         brew = list_homebrew()
         npm = list_npm_global()
@@ -85,6 +91,9 @@ class Dashboard(Widget):
         npm_n: int, npm_s: int,
         pip_n: int, pip_s: int,
     ) -> None:
+        self._loaded = True
+        self._loading = False
+
         # Hide loading, show table
         self.query_one("#dash-loading").display = False
         self.query_one("#pkg-table").display = True

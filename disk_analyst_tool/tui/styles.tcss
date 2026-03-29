@@ -129,6 +129,14 @@ Dashboard, DiskExplorer, PackageManager {
     margin: 0;
 }
 
+#disk-status-bar {
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    background: $surface;
+    color: $text-muted;
+}
+
 /* ===== Package Manager ===== */
 #pkg-nav {
     height: auto;

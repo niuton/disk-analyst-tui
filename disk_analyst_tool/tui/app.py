@@ -66,7 +66,7 @@ class DiskAnalystApp(App):
 
     def action_refresh(self) -> None:
         dashboard = self.query_one(Dashboard)
-        dashboard._refresh_data()
+        dashboard._refresh_data(force=True)
 
     def action_tab_dashboard(self) -> None:
         self.query_one(TabbedContent).active = "tab-dashboard"
