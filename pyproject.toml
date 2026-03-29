@@ -42,3 +42,6 @@ Issues = "https://github.com/niuton/disk-analyst-tui/issues"
 
 [project.scripts]
 disk-analyst = "disk_analyst_tool.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["disk_analyst_tool"]
