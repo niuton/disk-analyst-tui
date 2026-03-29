@@ -5,13 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "disk-analyst-tui"
 version = "0.1.0"
-description = "TUI system manager for macOS — disk analysis, smart cleanup, and package management"
+description = "TUI system manager for macOS — disk analysis, smart cleanup, package management, and Docker cleanup"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "niuton" },
 ]
-keywords = ["tui", "disk", "cleanup", "macos", "system-manager", "textual"]
+keywords = ["tui", "disk", "cleanup", "macos", "system-manager", "textual", "docker", "homebrew", "npm", "pip"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

@@ -1,12 +1,19 @@
-# TidyMac Implementation Plan
+# disk-analyst-tui Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Status:** COMPLETED — All 11 original tasks implemented + 3 enhancement tasks.
+> **Note:** Project was originally named "TidyMac", renamed to "disk-analyst-tui" during development.
 
 **Goal:** Build a Python TUI system manager for macOS that scans disk usage, performs smart cleanup, and manages Homebrew/npm/pip packages.
 
-**Architecture:** Core library (`tidymac/core/`) exposes a Python API consumed by a Textual TUI (`tidymac/tui/`). Clean separation so a Claude Code plugin can later consume the same core.
+**Architecture:** Core library (`disk_analyst_tool/core/`) exposes a Python API consumed by a Textual TUI (`disk_analyst_tool/tui/`). Clean separation so a Claude Code plugin can later consume the same core.
 
 **Tech Stack:** Python 3.11+, Textual (TUI), Pydantic (models), psutil (system stats), humanize (formatting)
+
+## Post-Plan Enhancements (implemented after original 11 tasks)
+
+- **Task 12: Uninstall from TUI** — `d` key with modal confirmation dialog
+- **Task 13: Search/filter packages** — `/` key to search, `Esc` to clear
+- **Task 14: Docker cleanup** — New Docker tab with image/container management and prune
 
 ---
 
