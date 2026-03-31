@@ -107,11 +107,26 @@ def list_containers(all: bool = True) -> list[DockerContainer]:
 
 def list_volumes() -> list[DockerVolume]:
     """List Docker volumes with sizes."""
-    output = _run_cmd(["docker", "system", "df", "-v", "--format", "{{json .}}"])
-    # Fallback: just list volumes
+    # Get volume names
     vol_output = _run_cmd(["docker", "volume", "ls", "--format", "{{json .}}"])
     if not vol_output:
         return []
+
+    # Parse volume sizes from docker system df -v (plain text)
+    df_output = _run_cmd(["docker", "system", "df", "-v"], timeout=60)
+    volume_sizes: dict[str, int] = {}
+    in_volumes = False
+    for line in df_output.splitlines():
+        if "VOLUME NAME" in line:
+            in_volumes = True
+            continue
+        if in_volumes and line.strip():
+            # Format: VOLUME NAME  LINKS  SIZE
+            parts = line.split()
+            if len(parts) >= 3:
+                vol_name = parts[0]
+                size_str = parts[-1]
+                volume_sizes[vol_name] = _parse_docker_size(size_str)
 
     volumes = []
     for line in vol_output.splitlines():
@@ -119,16 +134,15 @@ def list_volumes() -> list[DockerVolume]:
             data = json.loads(line)
             name = data.get("Name", "")
             driver = data.get("Driver", "")
-            # Get individual volume size
-            inspect = _run_cmd(["docker", "system", "df", "-v"])
+            size = volume_sizes.get(name, 0)
             volumes.append(DockerVolume(
                 name=name,
                 driver=driver,
-                size=0,  # Size not easily available per-volume
+                size=size,
             ))
         except json.JSONDecodeError:
             continue
-    return volumes
+    return sorted(volumes, key=lambda v: v.size, reverse=True)
 
 
 def get_docker_disk_usage() -> dict[str, int]:

@@ -15,10 +15,113 @@ from textual.widgets import (
     LoadingIndicator,
 )
 from textual.binding import Binding
+from textual.screen import ModalScreen
 from textual import work
 
 from disk_analyst_tool.core import scan_directory, find_large_files, detect_cleanable, categorize_targets, clean
-from disk_analyst_tool.core.models import DiskTree
+from disk_analyst_tool.core.models import DiskTree, CleanTarget
+
+
+class CleanupReview(ModalScreen[list[int]]):
+    """Modal showing items that need confirmation before cleanup."""
+
+    CSS = """
+    CleanupReview {
+        align: center middle;
+    }
+    #cleanup-dialog {
+        width: 90%;
+        max-width: 100;
+        height: 80%;
+        border: round $warning;
+        background: $surface;
+        padding: 1 2;
+    }
+    #cleanup-dialog Label {
+        width: 100%;
+    }
+    #cleanup-header {
+        height: 2;
+        text-style: bold;
+        color: $warning;
+    }
+    #cleanup-review-table {
+        height: 1fr;
+    }
+    #cleanup-actions {
+        layout: horizontal;
+        height: auto;
+        align: center middle;
+        margin: 1 0 0 0;
+    }
+    #cleanup-actions Button {
+        margin: 0 1;
+    }
+    """
+
+    def __init__(self, targets: list[CleanTarget], auto_cleaned: int, auto_freed: int) -> None:
+        super().__init__()
+        self._targets = targets
+        self._auto_cleaned = auto_cleaned
+        self._auto_freed = auto_freed
+        self._selected: set[int] = set()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="cleanup-dialog"):
+            if self._auto_cleaned > 0:
+                yield Label(
+                    f"  Auto-cleaned {self._auto_cleaned} safe items, "
+                    f"freed {humanize.naturalsize(self._auto_freed)}\n"
+                    f"  {len(self._targets)} items need your review:",
+                    id="cleanup-header",
+                )
+            else:
+                yield Label(
+                    f"  {len(self._targets)} items need your review:",
+                    id="cleanup-header",
+                )
+            yield DataTable(id="cleanup-review-table")
+            with Horizontal(id="cleanup-actions"):
+                yield Button("Delete Selected", id="btn-cleanup-delete", variant="error")
+                yield Button("Select All", id="btn-cleanup-all", variant="warning")
+                yield Button("Cancel", id="btn-cleanup-cancel")
+
+    def on_mount(self) -> None:
+        table = self.query_one("#cleanup-review-table", DataTable)
+        table.add_columns("Sel", "Category", "Path", "Size")
+        table.cursor_type = "row"
+
+        for i, target in enumerate(self._targets):
+            table.add_row(
+                "[ ]",
+                target.category,
+                str(target.path),
+                humanize.naturalsize(target.size),
+                key=str(i),
+            )
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Toggle selection on row click/enter."""
+        idx = int(event.row_key.value)
+        table = self.query_one("#cleanup-review-table", DataTable)
+
+        if idx in self._selected:
+            self._selected.discard(idx)
+            table.update_cell_at((event.cursor_row, 0), "[ ]")
+        else:
+            self._selected.add(idx)
+            table.update_cell_at((event.cursor_row, 0), "[x]")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-cleanup-delete":
+            self.dismiss(list(self._selected))
+        elif event.button.id == "btn-cleanup-all":
+            table = self.query_one("#cleanup-review-table", DataTable)
+            self._selected = set(range(len(self._targets)))
+            for i in range(len(self._targets)):
+                table.update_cell_at((i, 0), "[x]")
+        elif event.button.id == "btn-cleanup-cancel":
+            self.dismiss([])
 
 
 class DiskExplorer(Widget):
@@ -88,7 +191,7 @@ class DiskExplorer(Widget):
         self._find_large(self._get_path())
 
     def action_cleanup(self) -> None:
-        self._show_loading("Running cleanup...")
+        self._show_loading("Analyzing cleanup targets...")
         self._run_cleanup(self._get_path())
 
     def action_edit_path(self) -> None:
@@ -164,24 +267,62 @@ class DiskExplorer(Widget):
         categorized = categorize_targets(targets)
 
         safe = categorized["safe"]
-        msg = ""
+        auto_cleaned = 0
+        auto_freed = 0
         if safe:
             result = clean(safe, dry_run=False)
-            msg = f"Cleaned {result.cleaned} items, freed {humanize.naturalsize(result.bytes_freed)}"
+            auto_cleaned = result.cleaned
+            auto_freed = result.bytes_freed
 
         confirm = categorized["confirm"]
-        if confirm:
-            total = sum(t.size for t in confirm)
-            msg += f" | {len(confirm)} items need manual review ({humanize.naturalsize(total)})"
+        self.app.call_from_thread(self._show_cleanup_review, confirm, auto_cleaned, auto_freed)
 
-        if not safe and not confirm:
-            msg = "Nothing to clean!"
-
-        self.app.call_from_thread(self._cleanup_done, msg)
-
-    def _cleanup_done(self, msg: str) -> None:
+    def _show_cleanup_review(self, confirm: list[CleanTarget], auto_cleaned: int, auto_freed: int) -> None:
         self._hide_loading()
-        self.notify(msg, title="Cleanup")
+
+        if not confirm and auto_cleaned == 0:
+            self.notify("Nothing to clean!", title="All clear")
+            self.query_one("#disk-status-bar", Label).update(
+                "  Nothing to clean!  |  [F5] Scan  [F6] Large  [F7] Clean"
+            )
+            return
+
+        if not confirm:
+            msg = f"Cleaned {auto_cleaned} items, freed {humanize.naturalsize(auto_freed)}"
+            self.notify(msg, title="Cleanup done")
+            self.query_one("#disk-status-bar", Label).update(
+                f"  {msg}  |  [F5] Scan  [F6] Large  [F7] Clean"
+            )
+            return
+
+        # Show review modal for items needing confirmation
+        self.app.push_screen(
+            CleanupReview(confirm, auto_cleaned, auto_freed),
+            callback=self._on_cleanup_review_done,
+        )
+        # Store targets for callback
+        self._pending_confirm = confirm
+
+    def _on_cleanup_review_done(self, selected_indices: list[int]) -> None:
+        if not selected_indices:
+            self.query_one("#disk-status-bar", Label).update(
+                "  Cleanup cancelled  |  [F5] Scan  [F6] Large  [F7] Clean"
+            )
+            return
+
+        targets_to_clean = [self._pending_confirm[i] for i in selected_indices]
+        self._do_confirmed_cleanup(targets_to_clean)
+
+    @work(thread=True)
+    def _do_confirmed_cleanup(self, targets: list[CleanTarget]) -> None:
+        result = clean(targets, dry_run=False)
+        msg = f"Cleaned {result.cleaned} items, freed {humanize.naturalsize(result.bytes_freed)}"
+        if result.errors:
+            msg += f" ({len(result.errors)} errors)"
+        self.app.call_from_thread(self._cleanup_final, msg)
+
+    def _cleanup_final(self, msg: str) -> None:
+        self.notify(msg, title="Cleanup complete")
         self.query_one("#disk-status-bar", Label).update(
             f"  {msg}  |  [F5] Scan  [F6] Large  [F7] Clean"
         )

@@ -62,7 +62,7 @@ class Dashboard(Widget):
             alert.update("")
 
         # Only load packages if not already loaded (or forced)
-        if not self._loaded and not self._loading or force:
+        if (not self._loaded and not self._loading) or force:
             self._loading = True
             self.query_one("#dash-loading").display = True
             self.query_one("#pkg-table").display = False

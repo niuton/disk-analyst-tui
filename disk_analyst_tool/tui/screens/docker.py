@@ -13,6 +13,7 @@ from disk_analyst_tool.core.docker import (
     is_docker_available,
     list_images,
     list_containers,
+    list_volumes,
     remove_image,
     remove_container,
     prune_all,
@@ -75,9 +76,9 @@ class DockerManager(Widget):
         Binding("right", "next_view", "Next", show=False),
     ]
 
-    _VIEWS = ["images-view", "containers-view"]
-    _BUTTONS = ["btn-docker-images", "btn-docker-containers"]
-    _TABLES = ["docker-images-table", "docker-containers-table"]
+    _VIEWS = ["images-view", "containers-view", "volumes-view"]
+    _BUTTONS = ["btn-docker-images", "btn-docker-containers", "btn-docker-volumes"]
+    _TABLES = ["docker-images-table", "docker-containers-table", "docker-volumes-table"]
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -85,6 +86,7 @@ class DockerManager(Widget):
             with Horizontal(id="docker-nav"):
                 yield Button("Images", id="btn-docker-images", classes="nav-btn -active")
                 yield Button("Containers", id="btn-docker-containers", classes="nav-btn")
+                yield Button("Volumes", id="btn-docker-volumes", classes="nav-btn")
                 yield Button("Refresh", id="btn-docker-refresh", classes="nav-btn-refresh")
                 yield Button("Prune All", id="btn-docker-prune", variant="error", classes="nav-btn-refresh")
 
@@ -101,6 +103,8 @@ class DockerManager(Widget):
                         yield DataTable(id="docker-images-table")
                     with Vertical(id="containers-view"):
                         yield DataTable(id="docker-containers-table")
+                    with Vertical(id="volumes-view"):
+                        yield DataTable(id="docker-volumes-table")
 
             # Status
             yield Label("  [d] Remove  [p] Prune All", id="docker-status-bar")
@@ -112,6 +116,10 @@ class DockerManager(Widget):
 
         ctr_table = self.query_one("#docker-containers-table", DataTable)
         ctr_table.add_columns("Name", "Image", "Status", "ID")
+
+        vol_table = self.query_one("#docker-volumes-table", DataTable)
+        vol_table.add_columns("Volume Name", "Driver", "Size")
+        vol_table.cursor_type = "row"
         ctr_table.cursor_type = "row"
 
         self._check_and_load()
@@ -131,6 +139,7 @@ class DockerManager(Widget):
 
         images = list_images()
         containers = list_containers()
+        volumes = list_volumes()
 
         img_rows = [
             (
@@ -153,10 +162,22 @@ class DockerManager(Widget):
             for ctr in containers
         ]
 
+        vol_rows = [
+            (
+                vol.name,
+                vol.driver,
+                humanize.naturalsize(vol.size) if vol.size else "-",
+            )
+            for vol in volumes
+        ]
+
         total_img_size = sum(img.size for img in images)
+        total_vol_size = sum(vol.size for vol in volumes)
 
         self.app.call_from_thread(
-            self._render_data, img_rows, ctr_rows, len(images), len(containers), total_img_size
+            self._render_data, img_rows, ctr_rows, vol_rows,
+            len(images), len(containers), len(volumes),
+            total_img_size, total_vol_size,
         )
 
     def _show_unavailable(self) -> None:
@@ -167,8 +188,9 @@ class DockerManager(Widget):
         )
 
     def _render_data(
-        self, img_rows: list, ctr_rows: list,
-        img_count: int, ctr_count: int, total_size: int,
+        self, img_rows: list, ctr_rows: list, vol_rows: list,
+        img_count: int, ctr_count: int, vol_count: int,
+        total_size: int, total_vol_size: int,
     ) -> None:
         self.query_one("#docker-loading").display = False
         self.query_one("#docker-content-panel").display = True
@@ -183,8 +205,14 @@ class DockerManager(Widget):
         for row in ctr_rows:
             ctr_table.add_row(*row)
 
+        vol_table = self.query_one("#docker-volumes-table", DataTable)
+        vol_table.clear()
+        for row in vol_rows:
+            vol_table.add_row(*row)
+
         self.query_one("#docker-summary", Label).update(
-            f"  Images: {img_count} ({humanize.naturalsize(total_size)})  |  Containers: {ctr_count}"
+            f"  Images: {img_count} ({humanize.naturalsize(total_size)})  |  "
+            f"Containers: {ctr_count}  |  Volumes: {vol_count} ({humanize.naturalsize(total_vol_size)})"
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -193,6 +221,7 @@ class DockerManager(Widget):
         nav_map = {
             "btn-docker-images": "images-view",
             "btn-docker-containers": "containers-view",
+            "btn-docker-volumes": "volumes-view",
         }
 
         if event.button.id in nav_map:

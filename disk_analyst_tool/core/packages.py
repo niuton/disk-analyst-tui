@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from disk_analyst_tool.core.models import Package
@@ -152,6 +153,85 @@ def find_orphans(manager: str) -> list[Package]:
             if line.strip() and not line.startswith("=")
         ]
     return []
+
+
+@dataclass
+class OutdatedPackage:
+    name: str
+    current: str
+    latest: str
+    manager: str
+
+
+def list_outdated_homebrew() -> list[OutdatedPackage]:
+    """List outdated Homebrew packages."""
+    output = _run_cmd(["brew", "outdated", "--verbose"], timeout=60)
+    if not output:
+        return []
+
+    results = []
+    for line in output.splitlines():
+        # Format: "package (1.0 < 2.0)" or "package (1.0) < 2.0"
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        name = parts[0]
+        # Extract versions from the rest
+        rest = " ".join(parts[1:])
+        rest = rest.strip("()")
+        if "<" in rest:
+            versions = rest.split("<")
+            current = versions[0].strip().strip("()")
+            latest = versions[-1].strip().strip("()")
+            results.append(OutdatedPackage(name=name, current=current, latest=latest, manager="homebrew"))
+        elif len(parts) >= 2:
+            results.append(OutdatedPackage(name=name, current=parts[1] if len(parts) > 1 else "?", latest="?", manager="homebrew"))
+    return results
+
+
+def list_outdated_npm() -> list[OutdatedPackage]:
+    """List outdated global npm packages."""
+    output = _run_cmd(["npm", "outdated", "-g", "--json"], timeout=60)
+    if not output:
+        return []
+
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return []
+
+    return [
+        OutdatedPackage(
+            name=name,
+            current=info.get("current", "?"),
+            latest=info.get("latest", "?"),
+            manager="npm",
+        )
+        for name, info in data.items()
+    ]
+
+
+def list_outdated_pip() -> list[OutdatedPackage]:
+    """List outdated pip packages."""
+    output = _run_cmd(["pip", "list", "--outdated", "--format=json"], timeout=60)
+    if not output:
+        return []
+
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return []
+
+    return [
+        OutdatedPackage(
+            name=item["name"],
+            current=item.get("version", "?"),
+            latest=item.get("latest_version", "?"),
+            manager="pip",
+        )
+        for item in data
+    ]
 
 
 def uninstall(package: Package) -> tuple[bool, str]:

@@ -199,7 +199,7 @@ Dashboard, DiskExplorer, PackageManager {
     min-height: 10;
 }
 
-#brew-table, #npm-table, #pip-table {
+#brew-table, #npm-table, #pip-table, #outdated-table {
     height: 1fr;
     margin: 0;
 }

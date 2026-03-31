@@ -10,7 +10,7 @@ from textual.screen import ModalScreen
 from textual import work, on
 
 from disk_analyst_tool.core import list_homebrew, list_npm_global, list_pip, find_orphans
-from disk_analyst_tool.core.packages import uninstall
+from disk_analyst_tool.core.packages import uninstall, list_outdated_homebrew, list_outdated_npm, list_outdated_pip
 from disk_analyst_tool.core.models import Package
 
 
@@ -72,9 +72,9 @@ class PackageManager(Widget):
         Binding("right", "next_manager", "Next", show=False),
     ]
 
-    _VIEWS = ["brew-view", "npm-view", "pip-view"]
-    _BUTTONS = ["btn-brew", "btn-npm", "btn-pip"]
-    _TABLES = ["brew-table", "npm-table", "pip-table"]
+    _VIEWS = ["brew-view", "npm-view", "pip-view", "outdated-view"]
+    _BUTTONS = ["btn-brew", "btn-npm", "btn-pip", "btn-outdated"]
+    _TABLES = ["brew-table", "npm-table", "pip-table", "outdated-table"]
 
     # Store full data for filtering
     _all_rows: dict[str, list[tuple]] = {}
@@ -89,6 +89,7 @@ class PackageManager(Widget):
                 yield Button("Homebrew", id="btn-brew", classes="nav-btn -active")
                 yield Button("npm", id="btn-npm", classes="nav-btn")
                 yield Button("pip", id="btn-pip", classes="nav-btn")
+                yield Button("Outdated", id="btn-outdated", classes="nav-btn")
                 yield Button("Refresh", id="btn-pkg-refresh", classes="nav-btn-refresh")
 
             # Search bar
@@ -109,6 +110,8 @@ class PackageManager(Widget):
                         yield DataTable(id="npm-table")
                     with Vertical(id="pip-view"):
                         yield DataTable(id="pip-table")
+                    with Vertical(id="outdated-view"):
+                        yield DataTable(id="outdated-table")
 
             # Status bar
             yield Label("  [d] Uninstall  [/] Search  [Esc] Clear", id="pkg-status-bar")
@@ -122,6 +125,10 @@ class PackageManager(Widget):
             table = self.query_one(f"#{table_id}", DataTable)
             table.add_columns("Name", "Version", "Size", "Orphan?")
             table.cursor_type = "row"
+
+        outdated_table = self.query_one("#outdated-table", DataTable)
+        outdated_table.add_columns("Name", "Current", "Latest", "Manager")
+        outdated_table.cursor_type = "row"
 
         self._load_all()
 
@@ -251,13 +258,14 @@ class PackageManager(Widget):
             )
 
     def _load_all(self) -> None:
-        self._pending_loads = 3
+        self._pending_loads = 4
         self.query_one("#pkg-loading").display = True
         self.query_one("#pkg-content-panel").display = False
         self.query_one("#pkg-total-size", Label).update("  Loading packages...")
         self._load_brew()
         self._load_npm()
         self._load_pip()
+        self._load_outdated()
 
     @work(thread=True)
     def _load_brew(self) -> None:
@@ -318,6 +326,23 @@ class PackageManager(Widget):
             self._fill_table, "pip-table", rows, sorted_pkgs,
             f"pip: {len(packages)} packages, {humanize.naturalsize(total_size)}",
             total_size,
+        )
+
+    @work(thread=True)
+    def _load_outdated(self) -> None:
+        brew_out = list_outdated_homebrew()
+        npm_out = list_outdated_npm()
+        pip_out = list_outdated_pip()
+
+        all_outdated = brew_out + npm_out + pip_out
+        rows = [
+            (pkg.name, pkg.current, pkg.latest, pkg.manager)
+            for pkg in all_outdated
+        ]
+        self.app.call_from_thread(
+            self._fill_table, "outdated-table", rows, [],
+            f"Outdated: {len(all_outdated)} packages need updating",
+            0,
         )
 
     def _fill_table(self, table_id: str, rows: list, packages: list, status: str, total_size: int) -> None:
